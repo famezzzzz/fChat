@@ -20,7 +20,7 @@
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/dto/SendMessageRequest.java
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/ChatApplication.java
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/dto/CreateGroupChatRequest.java
+/Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/security/SecurityConfig.java
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/config/SQLiteDialect.java
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/security/JwtUtil.java
 /Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/repository/ChatUserRepository.java
-/Users/urijvazmin/Downloads/ChatServer/fChat/src/main/java/ru/top/server/config/SecurityConfig.java

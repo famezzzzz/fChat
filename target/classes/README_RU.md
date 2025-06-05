@@ -25,51 +25,51 @@
 
 ### 1. Сущности (`ru.top.server.model`)
 - **ChatUser**:
-    - Таблица: `chat_user`
-    - Поля: `id` (UUID, первичный ключ), `username`, `password` (закодирован с помощью BCrypt), `birthdate`, `email`, `phone`, `avatar_url`.
-    - Представляет пользователя, связанного с сообщениями и группами через отношения.
+  - Таблица: `chat_user`
+  - Поля: `id` (UUID, первичный ключ), `username`, `password` (закодирован с помощью BCrypt), `birthdate`, `email`, `phone`, `avatar_url`.
+  - Представляет пользователя, связанного с сообщениями и группами через отношения.
 - **ChatGroup**:
-    - Таблица: `chat_group`
-    - Поля: `id` (UUID, первичный ключ), `name`.
-    - Представляет группу чата, связанную с сообщениями и пользователями.
+  - Таблица: `chat_group`
+  - Поля: `id` (UUID, первичный ключ), `name`.
+  - Представляет группу чата, связанную с сообщениями и пользователями.
 - **ChatUserGroups**:
-    - Таблица: `chat_user_groups`
-    - Поля: `id` (автоинкремент), `user_id`, `group_id`.
-    - Управляет отношениями многие-ко-многим между пользователями и группами.
+  - Таблица: `chat_user_groups`
+  - Поля: `id` (автоинкремент), `user_id`, `group_id`.
+  - Управляет отношениями многие-ко-многим между пользователями и группами.
 - **Message**:
-    - Таблица: `chat_message`
-    - Поля: `id` (UUID, первичный ключ), `content`, `sender_id`, `recipient_id`, `group_id`, `chat_type` (`PRIVATE` или `GROUP`), `timestamp`.
-    - Представляет личные или групповые сообщения, с внешними ключами на `chat_user` и `chat_group`.
+  - Таблица: `chat_message`
+  - Поля: `id` (UUID, первичный ключ), `content`, `sender_id`, `recipient_id`, `group_id`, `chat_type` (`PRIVATE` или `GROUP`), `timestamp`.
+  - Представляет личные или групповые сообщения, с внешними ключами на `chat_user` и `chat_group`.
 
 ### 2. Маршруты (`ChatRoute.java`)
 Маршруты Apache Camel определяют логику API:
 - **Управление пользователями**:
-    - `/api/users/register`: Создаёт пользователя с уникальным именем, закодированным паролем, датой рождения, email, телефоном и URL аватара.
-    - `/api/auth/login`: Аутентифицирует пользователей и возвращает JWT.
-    - `/api/users/{userId}`: Возвращает информацию о конкретном пользователе (ID, имя, дата рождения, email, телефон, URL аватара).
+  - `/api/users/register`: Создаёт пользователя с уникальным именем, закодированным паролем, датой рождения, email, телефоном и URL аватара.
+  - `/api/auth/login`: Аутентифицирует пользователей и возвращает JWT.
+  - `/api/users/{userId}`: Возвращает информацию о конкретном пользователе (ID, имя, дата рождения, email, телефон, URL аватара).
 - **Управление группами**:
-    - `/api/groups`: Создаёт группу с уникальным именем.
-    - `/api/groups/join`: Добавляет пользователя в группу, заполняющей `chat_user_groups`.
+  - `/api/groups`: Создаёт группу с уникальным именем.
+  - `/api/groups/join`: Добавляет пользователя в группу, заполняющей `chat_user_groups`.
 - **Сообщения**:
-    - `/api/messages/private`: Отправляет личное сообщение, доставляя его через WebSocket на `/topic/private/{recipientId}`.
-    - `/api/messages/private/{userId}`: Получает личные сообщения для пользователя.
-    - `/api/messages/group`: Отправляет групповое сообщение, доставляя его на `/topic/group/{groupId}`.
-    - `/api/messages/group/{groupId}`: Получает групповые сообщения.
-    - `/api/messages/search`: Ищет сообщения по ключевым словам и/или временному диапазону.
+  - `/api/messages/private`: Отправляет личное сообщение, доставляя его через WebSocket на `/topic/private/{recipientId}`.
+  - `/api/messages/private/{userId}`: Получает личные сообщения для пользователя.
+  - `/api/messages/group`: Отправляет групповое сообщение, доставляя его на `/topic/group/{groupId}`.
+  - `/api/messages/group/{groupId}`: Получает групповые сообщения.
+  - `/api/messages/search`: Ищет сообщения по ключевым словам и/или временному диапазону.
 
 ### 3. Безопасность (`SecurityConfig.java`, `JwtUtil.java`, `JwtAuthenticationFilter.java`)
 - **Аутентификация**: Spring Security использует JWT, сгенерированные при входе.
 - **Авторизация**:
-    - Публичные эндпоинты: `/api/auth/login`, `/api/users/register`, `/api/groups`.
-    - Защищённые эндпоинты: `/api/messages/*`, `/api/users/*`, `/api/groups/join` требуют роль `ROLE_USER`.
+  - Публичные эндпоинты: `/api/auth/login`, `/api/users/register`, `/api/groups`.
+  - Защищённые эндпоинты: `/api/messages/*`, `/api/users/*`, `/api/groups/join` требуют роль `ROLE_USER`.
 - **Поток JWT**:
-    1. Пользователь входит, получая JWT с `username` и `ROLE_USER`.
-    2. `JwtAuthenticationFilter` проверяет JWT для защищённых запросов, устанавливая контекст безопасности.
+  1. Пользователь входит, получая JWT с `username` и `ROLE_USER`.
+  2. `JwtAuthenticationFilter` проверяет JWT для защищённых запросов, устанавливая контекст безопасности.
 
 ### 4. WebSocket (`SimpMessagingTemplate`)
 - Мгновенные сообщения обрабатываются через темы WebSocket:
-    - Личные сообщения: `/topic/private/{userId}`.
-    - Групповые сообщения: `/topic/group/{groupId}`.
+  - Личные сообщения: `/topic/private/{userId}`.
+  - Групповые сообщения: `/topic/group/{groupId}`.
 - Сообщения отправляются после сохранения в базу данных.
 
 ### 5. Хранилище данных (`application.properties`, `init.sql`)
@@ -227,9 +227,9 @@ CREATE TABLE chat_message (
 - **GET** `/api/messages/search?keyword={keyword}&start={start}&end={end}`
 - **Заголовки**: `Authorization: Bearer [jwt]`
 - **Параметры**:
-    - `keyword` (опционально): строка для поиска в содержимом сообщений (например, `hello`).
-    - `start` (опционально): начальная дата/время в формате ISO (например, `2025-06-01T00:00:00`).
-    - `end` (опционально): конечная дата/время в формате ISO (например, `2025-06-03T23:59:59`).
+  - `keyword` (опционально): строка для поиска в содержимом сообщений (например, `hello`).
+  - `start` (опционально): начальная дата/время в формате ISO (например, `2025-06-01T00:00:00`).
+  - `end` (опционально): конечная дата/время в формате ISO (например, `2025-06-03T23:59:59`).
 - **Пример запроса**:
   ```bash
   curl -X GET "http://localhost:38080/api/messages/search?keyword=hello&start=2025-06-01T00:00:00&end=2025-06-03T23:59:59" -H "Authorization: Bearer [jwt]"
@@ -242,40 +242,40 @@ CREATE TABLE chat_message (
 
 ## Как это работает
 1. **Запуск**:
-    - Spring Boot инициализирует приложение, загружая `application.properties`.
-    - База SQLite инициализируется с помощью `init.sql`.
-    - Hibernate сопоставляет сущности с таблицами, используя `none` для DDL.
-    - Маршруты Camel настраиваются для REST-эндпоинтов.
-    - Spring Security настраивает JWT-аутентификацию.
+   - Spring Boot инициализирует приложение, загружая `application.properties`.
+   - База SQLite инициализируется с помощью `init.sql`.
+   - Hibernate сопоставляет сущности с таблицами, используя `none` для DDL.
+   - Маршруты Camel настраиваются для REST-эндпоинтов.
+   - Spring Security настраивает JWT-аутентификацию.
 
 2. **Поток пользователя**:
-    - **Регистрация**: Пользователь отправляет имя, пароль, дату рождения, email, телефон и URL аватара; данные сохраняются с кодировкой BCrypt.
-    - **Вход**: Пользователь аутентифицируется, получает JWT для последующих запросов.
-    - **Получение информации о пользователе**: Пользователь запрашивает данные другого пользователя по ID.
-    - **Создание/присоединение к группам**: Пользователи создают группы и присоединяются к ним, заполняя `chat_user_groups`.
-    - **Сообщения**:
-        - Личные сообщения сохраняются и отправляются получателю через WebSocket.
-        - Групповые сообщения сохраняются и отправляются подписчикам группы.
-        - Сообщения извлекаются через GET-запросы с фильтрацией по получателю, группе или ключевым словам/временному диапазону.
+   - **Регистрация**: Пользователь отправляет имя, пароль, дату рождения, email, телефон и URL аватара; данные сохраняются с кодировкой BCrypt.
+   - **Вход**: Пользователь аутентифицируется, получает JWT для последующих запросов.
+   - **Получение информации о пользователе**: Пользователь запрашивает данные другого пользователя по ID.
+   - **Создание/присоединение к группам**: Пользователи создают группы и присоединяются к ним, заполняя `chat_user_groups`.
+   - **Сообщения**:
+     - Личные сообщения сохраняются и отправляются получателю через WebSocket.
+     - Групповые сообщения сохраняются и отправляются подписчикам группы.
+     - Сообщения извлекаются через GET-запросы с фильтрацией по получателю, группе или ключевым словам/временному диапазону.
 
 3. **Обработка запросов**:
-    - **REST-запрос**: Обрабатывается маршрутом Camel (например, `direct:sendPrivateMessage`).
-    - **Безопасность**: `JwtAuthenticationFilter` проверяет JWT, устанавливает контекст.
-    - **Бизнес-логика**: Маршрут проверяет входные данные, запрашивает репозитории, сохраняет данные через JPA.
-    - **WebSocket**: Отправляет сообщения клиентам.
-    - **Ответ**: Возвращает JSON (например, `{"message":"Message sent successfully"}`).
+   - **REST-запрос**: Обрабатывается маршрутом Camel (например, `direct:sendPrivateMessage`).
+   - **Безопасность**: `JwtAuthenticationFilter` проверяет JWT, устанавливает контекст.
+   - **Бизнес-логика**: Маршрут проверяет входные данные, запрашивает репозитории, сохраняет данные через JPA.
+   - **WebSocket**: Отправляет сообщения клиентам.
+   - **Ответ**: Возвращает JSON (например, `{"message":"Message sent successfully"}`).
 
 4. **Пример потока данных** (Поиск сообщений):
-    - Запрос: `GET /api/messages/search?keyword=hello&start=2025-06-01T00:00:00` с JWT.
-    - Маршрут: Проверяет аутентифицированного пользователя, выполняет запрос JPA с фильтрацией по ключевому слову и времени.
-    - База данных: Возвращает список сообщений, соответствующих критериям.
-    - Ответ: `200 OK` с JSON-массивом сообщений.
+   - Запрос: `GET /api/messages/search?keyword=hello&start=2025-06-01T00:00:00` с JWT.
+   - Маршрут: Проверяет аутентифицированного пользователя, выполняет запрос JPA с фильтрацией по ключевому слову и времени.
+   - База данных: Возвращает список сообщений, соответствующих критериям.
+   - Ответ: `200 OK` с JSON-массивом сообщений.
 
 ## Настройка и запуск
 1. **Требования**:
-    - Java 17
-    - Maven
-    - SQLite
+   - Java 17
+   - Maven
+   - SQLite
 
 2. **Клонирование репозитория**:
    ```bash
@@ -295,50 +295,50 @@ CREATE TABLE chat_message (
    ```
 
 5. **Тестирование эндпоинтов**:
-    - Регистрация:
-      ```bash
-      curl -X POST http://localhost:38080/api/users/register -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123","birthdate":"01-01-1990","email":"user@example.com","phone":"+1234567890","avatarUrl":"https://example.com/avatar.jpg"}'
-      ```
-    - Получение информации о пользователе:
-      ```bash
-      curl -X GET http://localhost:38080/api/users/{userId} -H "Authorization: Bearer [jwt]"
-      ```
-    - Вход:
-      ```bash
-      curl -X POST http://localhost:38080/api/auth/login -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123"}'
-      ```
-    - Поиск сообщений:
-      ```bash
-      curl -X GET "http://localhost:38080/api/messages/search?keyword=hello&start=2025-06-01T00:00:00" -H "Authorization: Bearer [jwt]"
-      ```
-    - Используйте JWT для защищённых эндпоинтов.
+   - Регистрация:
+     ```bash
+     curl -X POST http://localhost:38080/api/users/register -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123","birthdate":"01-01-1990","email":"user@example.com","phone":"+1234567890","avatarUrl":"https://example.com/avatar.jpg"}'
+     ```
+   - Получение информации о пользователе:
+     ```bash
+     curl -X GET http://localhost:38080/api/users/{userId} -H "Authorization: Bearer [jwt]"
+     ```
+   - Вход:
+     ```bash
+     curl -X POST http://localhost:38080/api/auth/login -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123"}'
+     ```
+   - Поиск сообщений:
+     ```bash
+     curl -X GET "http://localhost:38080/api/messages/search?keyword=hello&start=2025-06-01T00:00:00" -H "Authorization: Bearer [jwt]"
+     ```
+   - Используйте JWT для защищённых эндпоинтов.
 
 ## Устранение неполадок
 - **Ошибки DDL**:
-    - Проверьте `spring.jpa.hibernate.ddl-auto=none` в `application.properties`.
-    - Переинициализируйте базу данных с помощью `init.sql`.
+  - Проверьте `spring.jpa.hibernate.ddl-auto=none` в `application.properties`.
+  - Переинициализируйте базу данных с помощью `init.sql`.
 - **403 Forbidden**:
-    - Проверьте валидность JWT и наличие `ROLE_USER` в `SecurityConfig.java`.
-    - Временно установите `.anyRequest().permitAll()` для теста.
+  - Проверьте валидность JWT и наличие `ROLE_USER` в `SecurityConfig.java`.
+  - Временно установите `.anyRequest().permitAll()` для теста.
 - **Пустые ответы**:
-    - Выполните запрос к базе: `SELECT * FROM chat_message WHERE ...`.
-    - Проверьте логи: `/Users/urijvazmin/server.log`.
+  - Выполните запрос к базе: `SELECT * FROM chat_message WHERE ...`.
+  - Проверьте логи: `/Users/urijvazmin/server.log`.
 - **Ошибки сериализации**:
-    - Убедитесь, что в `Message.java` есть `@JsonIgnoreProperties`.
-    - Проверьте использование `ObjectMapper` в маршрутах.
+  - Убедитесь, что в `Message.java` есть `@JsonIgnoreProperties`.
+  - Проверьте использование `ObjectMapper` в маршрутах.
 - **Ошибка InvalidPayloadRuntimeException в `/api/messages/search`**:
-    - Убедитесь, что запрос использует корректный формат параметров (`keyword`, `start`, `end`).
-    - Проверьте, что база данных содержит сообщения, соответствующие критериям поиска.
-    - Проверьте логи на наличие ошибок JPA или Hibernate, таких как `SQLITE_ERROR`.
-    - Убедитесь, что `Message.java` содержит правильный именованный запрос `Message.searchMessages`.
+  - Убедитесь, что запрос использует корректный формат параметров (`keyword`, `start`, `end`).
+  - Проверьте, что база данных содержит сообщения, соответствующие критериям поиска.
+  - Проверьте логи на наличие ошибок JPA или Hibernate, таких как `SQLITE_ERROR`.
+  - Убедитесь, что `Message.java` содержит правильный именованный запрос `Message.searchMessages`.
 - **Ошибки десериализации даты**:
-    - Убедитесь, что поле `birthdate` в запросе `/api/users/register` соответствует формату `MM-dd-yyyy` (например, `01-01-1990`).
-    - Проверьте логи на наличие `DateTimeParseException`.
+  - Убедитесь, что поле `birthdate` в запросе `/api/users/register` соответствует формату `MM-dd-yyyy` (например, `01-01-1990`).
+  - Проверьте логи на наличие `DateTimeParseException`.
 
 ## Логи
 - Расположение: `/Users/urijvazmin/server.log`
 - Ключевые записи:
-    - `Retrieved X messages for groupId/userId`
-    - `Pushed private/group message to /topic/...`
-    - `Failed to search messages: ...`
-    - SQL-запросы Hibernate
+  - `Retrieved X messages for groupId/userId`
+  - `Pushed private/group message to /topic/...`
+  - `Failed to search messages: ...`
+  - SQL-запросы Hibernate

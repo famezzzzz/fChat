@@ -32,8 +32,8 @@ public class SecurityConfig {
 //                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()
 //                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/users/register", "/api/create/group").permitAll()
-                        .requestMatchers("/api/messages/**", "/api/users/**").hasRole("USER")
+                        .requestMatchers("/api/auth/login", "/api/users/register").permitAll()
+                        .requestMatchers("/api/messages/**", "/api/users/**", "/api/groups/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

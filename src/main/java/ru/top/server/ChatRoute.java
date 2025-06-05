@@ -6,7 +6,6 @@ import org.apache.camel.model.rest.RestBindingMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,6 +24,8 @@ import ru.top.server.repository.ChatUserRepository;
 import ru.top.server.security.JwtUtil;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,6 @@ import java.util.stream.Collectors;
 public class ChatRoute extends RouteBuilder {
     private static final Logger log = LoggerFactory.getLogger(ChatRoute.class);
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -100,11 +99,11 @@ public class ChatRoute extends RouteBuilder {
                         log.info("Generated JWT for user: {}", loginRequest.username());
                         exchange.getIn().setBody("{\"token\":\"" + jwt + "\"}");
                     } catch (AuthenticationException e) {
-                        log.error("Authentication failed for user {}: {}",
+                        log.error("Authentication failed for user: {}: {}",
                                 loginRequest != null ? loginRequest.username() : "unknown", e.getMessage());
                         throw new IllegalArgumentException("Invalid credentials: " + e.getMessage(), e);
                     } catch (Exception e) {
-                        log.error("Error processing login for user {}: {}",
+                        log.error("Error processing login for user: {}: {}",
                                 loginRequest != null ? loginRequest.username() : "unknown", e.getMessage());
                         throw new IllegalArgumentException("Invalid JSON or processing error: " + e.getMessage(), e);
                     }
@@ -116,22 +115,23 @@ public class ChatRoute extends RouteBuilder {
                     String errorMessage = exception.getCause() != null
                             ? exception.getCause().getMessage()
                             : exception.getMessage();
-                    exchange.getIn().setBody("{\"error\":\"" + errorMessage + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 400);
+                    exchange.getMessage().setBody("{\"error\":\"" + errorMessage + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
 
         rest("/api/users/register")
                 .post()
                 .consumes("application/json")
+                .produces("application/json")
                 .to("direct:registerUser");
 
         from("direct:registerUser")
                 .doTry()
                 .process(exchange -> {
                     String body = exchange.getIn().getBody(String.class);
-                    String contentType = exchange.getIn().getHeader("Content-Type", String.class);
+                    String contentType = exchange.getMessage().getHeader("Content-Type", String.class);
                     log.info("Received registration request: body={}, contentType={}", body, contentType);
                     if (body == null || body.trim().isEmpty()) {
                         throw new IllegalArgumentException("Request body is empty");
@@ -144,8 +144,14 @@ public class ChatRoute extends RouteBuilder {
                         if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
                             throw new IllegalArgumentException("Missing password");
                         }
+                        if (user.getEmail() != null && user.getEmail().trim().isEmpty()) {
+                            throw new IllegalArgumentException("Email cannot be empty if provided");
+                        }
                         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
                             throw new IllegalArgumentException("Username already registered");
+                        }
+                        if (user.getEmail() != null && userRepository.findByEmail(user.getEmail()).isPresent()) {
+                            throw new IllegalArgumentException("Email already registered");
                         }
                         user.setId(UUID.randomUUID().toString());
                         user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -156,28 +162,61 @@ public class ChatRoute extends RouteBuilder {
                     }
                 })
                 .to("jpa:ru.top.server.model.ChatUser")
-                .setBody(simple("{\"message\":\"User registered successfully\",\"id\":\"${body.id}\",\"username\":\"${body.username}\"}"))
+                .setBody(simple("{\"message\":\"User registered successfully\",\"id\":\"${body.id}\",\"username\":\"${body.username}\",\"email\":\"${body.email}\"}"))
                 .doCatch(Exception.class)
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to register user: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 400);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
 
-        rest("/api/create/group")
+        rest("/api/users/{userId}")
+                .get()
+                .produces("application/json")
+                .to("direct:getUser");
+
+        from("direct:getUser")
+                .doTry()
+                .process(exchange -> {
+                    String userId = exchange.getMessage().getHeader("userId", String.class);
+                    log.info("Fetching user with ID: {}", userId);
+                    ChatUser user = userRepository.findById(userId)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("id", user.getId());
+                    userMap.put("username", user.getUsername());
+                    userMap.put("birthdate", user.getBirthdate() != null ? user.getBirthdate().toString() : null);
+                    userMap.put("email", user.getEmail());
+                    userMap.put("phone", user.getPhone());
+                    userMap.put("avatarUrl", user.getAvatarUrl());
+                    String json = objectMapper.writeValueAsString(userMap);
+                    exchange.getIn().setBody(json);
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch user: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 404);
+                })
+                .end();
+
+        rest("/api/groups/create")
                 .post()
                 .consumes("application/json")
                 .produces("application/json")
-                .to("direct:createGroup");
+                .to("direct:group");
 
-        from("direct:createGroup")
+        from("direct:group")
                 .doTry()
                 .process(exchange -> {
                     String body = exchange.getIn().getBody(String.class);
-                    String contentType = exchange.getIn().getHeader("Content-Type", String.class);
+                    String contentType = exchange.getMessage().getHeader("Content-Type", String.class);
                     log.info("Received group creation request: body={}, Content-Type={}", body, contentType);
                     if (body == null || body.trim().isEmpty()) {
                         throw new IllegalArgumentException("Request body is empty");
@@ -203,9 +242,9 @@ public class ChatRoute extends RouteBuilder {
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to create group: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 400);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
 
@@ -229,16 +268,16 @@ public class ChatRoute extends RouteBuilder {
                             .collect(Collectors.toList());
                     String json = objectMapper.writeValueAsString(userList);
                     exchange.getIn().setBody(json);
-                    exchange.getIn().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
                     log.info("Retrieved {} users", users.size());
                 })
                 .doCatch(Exception.class)
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to fetch users: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 500);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 500);
                 })
                 .end();
 
@@ -262,16 +301,16 @@ public class ChatRoute extends RouteBuilder {
                             .collect(Collectors.toList());
                     String json = objectMapper.writeValueAsString(groupList);
                     exchange.getIn().setBody(json);
-                    exchange.getIn().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
                     log.info("Retrieved {} groups", groups.size());
                 })
                 .doCatch(Exception.class)
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to fetch groups: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 500);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 500);
                 })
                 .end();
 
@@ -314,20 +353,14 @@ public class ChatRoute extends RouteBuilder {
                     exchange.setProperty("message", message);
                 })
                 .to("jpa:ru.top.server.model.Message")
-                .process(exchange -> {
-                    Message message = exchange.getProperty("message", Message.class);
-                    String recipientId = message.getRecipient().getId();
-                    messagingTemplate.convertAndSend("/topic/private/" + recipientId, message);
-                    log.info("Pushed private message to /topic/private/{}", recipientId);
-                })
                 .setBody(simple("{\"message\":\"Message sent successfully\"}"))
                 .doCatch(Exception.class)
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to send private message: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 400);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
 
@@ -370,44 +403,119 @@ public class ChatRoute extends RouteBuilder {
                     exchange.setProperty("message", message);
                 })
                 .to("jpa:ru.top.server.model.Message")
-                .process(exchange -> {
-                    Message message = exchange.getProperty("message", Message.class);
-                    String groupId = message.getGroup().getId();
-                    messagingTemplate.convertAndSend("/topic/group/" + groupId, message);
-                    log.info("Pushed group message to /topic/group/{}", groupId);
-                })
                 .setBody(simple("{\"message\":\"Message sent successfully\"}"))
                 .doCatch(Exception.class)
                 .process(exchange -> {
                     Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
                     log.error("Failed to send group message: {}", exception.getMessage(), exception);
-                    exchange.getIn().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                    exchange.getIn().setHeader("CamelHttpResponseCode", 400);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
 
-        rest("/api/messages/private/{userId}")
+        rest("/api/messages/private/conversation/{otherUserId}")
                 .get()
                 .produces("application/json")
                 .to("direct:privateMessages");
 
         from("direct:privateMessages")
+                .doTry()
                 .process(exchange -> {
-                    String userId = exchange.getIn().getHeader("userId", String.class);
-                    log.info("Fetching private messages for userId: {}", userId);
+                    String otherUserId = exchange.getMessage().getHeader("otherUserId", String.class);
+                    String sinceParam = exchange.getMessage().getHeader("since", String.class);
+                    log.info("Fetching new private messages for conversation with otherUserId: {}, since: {}", otherUserId, sinceParam);
                     Map<String, Object> parameters = new HashMap<>();
-                    parameters.put("userId", userId);
+                    parameters.put("otherUserId", otherUserId);
+                    LocalDateTime since;
+                    if (sinceParam != null && !sinceParam.isEmpty()) {
+                        try {
+                            since = LocalDateTime.parse(sinceParam, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                        } catch (DateTimeParseException e) {
+                            log.error("Invalid 'since' timestamp format: {}", sinceParam);
+                            throw new IllegalArgumentException("Invalid 'since' timestamp format: " + sinceParam);
+                        }
+                    } else {
+                        since = LocalDateTime.now().minusHours(24);
+                    }
+                    parameters.put("since", since);
+                    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String username = auth != null ? auth.getName() : null;
+                    log.info("Authenticated user: {}", username);
+                    if (username == null) {
+                        throw new IllegalArgumentException("No authenticated user found");
+                    }
+                    ChatUser user = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+                    ChatUser otherUser = userRepository.findById(otherUserId)
+                            .orElseThrow(() -> new IllegalArgumentException("Other user not found: " + otherUserId));
+                    parameters.put("userId", user.getId());
                     exchange.getIn().setHeader("CamelJpaParameters", parameters);
                 })
-                .to("jpa:ru.top.server.model.Message?namedQuery=Message.findByUserId")
+                .to("jpa:ru.top.server.model.Message?namedQuery=Message.findConversationMessages")
                 .process(exchange -> {
                     List<Message> messages = exchange.getIn().getBody(List.class);
-                    log.info("Retrieved {} private messages for userId: {}", messages != null ? messages.size() : 0, exchange.getIn().getHeader("userId"));
+                    String otherUserId = exchange.getMessage().getHeader("otherUserId", String.class);
+                    log.info("Retrieved {} private messages for conversation with otherUserId: {}", messages != null ? messages.size() : 0, otherUserId);
                     String json = objectMapper.writeValueAsString(messages != null ? messages : List.of());
                     exchange.getIn().setBody(json);
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                });
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch private messages: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    int statusCode = exception.getMessage().contains("SQLITE_ERROR") ? 500 : 400;
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", statusCode);
+                })
+                .end();
+
+        rest("/api/messages/private/history/{otherUserId}")
+                .get()
+                .produces("application/json")
+                .to("direct:privateChatHistory");
+
+        from("direct:privateChatHistory")
+                .doTry()
+                .process(exchange -> {
+                    String otherUserId = exchange.getMessage().getHeader("otherUserId", String.class);
+                    log.info("Fetching chat history with otherUserId: {}", otherUserId);
+                    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String username = auth != null ? auth.getName() : null;
+                    log.info("Authenticated user: {}", username);
+                    if (username == null) {
+                        throw new IllegalArgumentException("No authenticated user found");
+                    }
+                    ChatUser user = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+                    ChatUser otherUser = userRepository.findById(otherUserId)
+                            .orElseThrow(() -> new IllegalArgumentException("Other user not found: " + otherUserId));
+                    Map<String, Object> parameters = new HashMap<>();
+                    parameters.put("userId", user.getId());
+                    parameters.put("otherUserId", otherUserId);
+                    exchange.getIn().setHeader("CamelJpaParameters", parameters);
+                })
+                .to("jpa:ru.top.server.model.Message?namedQuery=Message.findChatHistory")
+                .process(exchange -> {
+                    List<Message> messages = exchange.getIn().getBody(List.class);
+                    String otherUserId = exchange.getMessage().getHeader("otherUserId", String.class);
+                    log.info("Retrieved {} messages for chat history with otherUserId: {}", messages != null ? messages.size() : 0, otherUserId);
+                    String json = objectMapper.writeValueAsString(messages != null ? messages : List.of());
+                    exchange.getIn().setBody(json);
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch chat history: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    int statusCode = exception.getMessage().contains("SQLITE_ERROR") ? 500 : 400;
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", statusCode);
+                })
+                .end();
 
         rest("/api/messages/group/{groupId}")
                 .get()
@@ -415,8 +523,9 @@ public class ChatRoute extends RouteBuilder {
                 .to("direct:groupMessages");
 
         from("direct:groupMessages")
+                .doTry()
                 .process(exchange -> {
-                    String groupId = exchange.getIn().getHeader("groupId", String.class);
+                    String groupId = exchange.getMessage().getHeader("groupId", String.class);
                     log.info("Fetching group messages for groupId: {}", groupId);
                     Map<String, Object> parameters = new HashMap<>();
                     parameters.put("groupId", groupId);
@@ -425,11 +534,116 @@ public class ChatRoute extends RouteBuilder {
                 .to("jpa:ru.top.server.model.Message?namedQuery=Message.findByGroupId")
                 .process(exchange -> {
                     List<Message> messages = exchange.getIn().getBody(List.class);
-                    log.info("Retrieved {} messages for groupId: {}", messages != null ? messages.size() : 0, exchange.getIn().getHeader("groupId"));
+                    log.info("Retrieved {} messages for groupId: {}", messages != null ? messages.size() : 0, exchange.getMessage().getHeader("groupId"));
                     String json = objectMapper.writeValueAsString(messages != null ? messages : List.of());
                     exchange.getIn().setBody(json);
-                    exchange.getIn().setHeader("Content-Type", "application/json");
-                });
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch group messages: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 500);
+                })
+                .end();
 
+        rest("/api/messages/search")
+                .get()
+                .produces("application/json")
+                .to("direct:searchMessages");
+
+        from("direct:searchMessages")
+                .doTry()
+                .process(exchange -> {
+                    String keyword = exchange.getMessage().getHeader("keyword", String.class);
+                    String startParam = exchange.getMessage().getHeader("start", String.class);
+                    String endParam = exchange.getMessage().getHeader("end", String.class);
+                    log.info("Searching messages with keyword: {}, start: {}, end: {}", keyword, startParam, endParam);
+
+                    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String username = auth != null ? auth.getName() : null;
+                    log.info("Authenticated user: {}", username);
+                    if (username == null) {
+                        throw new IllegalArgumentException("No authenticated user found");
+                    }
+                    ChatUser user = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+
+                    Map<String, Object> parameters = new HashMap<>();
+                    parameters.put("userId", user.getId());
+                    if (keyword != null && !keyword.trim().isEmpty()) {
+                        parameters.put("keyword", "%" + keyword.trim() + "%");
+                    } else {
+                        parameters.put("keyword", null);
+                    }
+                    if (startParam != null && !startParam.isEmpty()) {
+                        try {
+                            LocalDateTime start = LocalDateTime.parse(startParam, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                            parameters.put("start", start);
+                        } catch (DateTimeParseException e) {
+                            log.error("Invalid 'start' timestamp format: {}", startParam);
+                            throw new IllegalArgumentException("Invalid 'start' timestamp format: " + startParam);
+                        }
+                    } else {
+                        parameters.put("start", null);
+                    }
+                    if (endParam != null && !endParam.isEmpty()) {
+                        try {
+                            LocalDateTime end = LocalDateTime.parse(endParam, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                            parameters.put("end", end);
+                        } catch (DateTimeParseException e) {
+                            log.error("Invalid 'end' timestamp format: {}", endParam);
+                            throw new IllegalArgumentException("Invalid 'end' timestamp format: " + endParam);
+                        }
+                    } else {
+                        parameters.put("end", null);
+                    }
+                    exchange.getIn().setHeader("CamelJpaParameters", parameters);
+                    exchange.getIn().setBody(null);
+                })
+                .to("jpa:ru.top.server.model.Message?namedQuery=Message.searchMessages&resultClass=java.util.List")
+                .process(exchange -> {
+                    List<Message> messages = exchange.getIn().getBody(List.class);
+                    log.info("Retrieved {} messages for search", messages != null ? messages.size() : 0);
+                    String json = objectMapper.writeValueAsString(messages != null ? messages : List.of());
+                    exchange.getIn().setBody(json);
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to search messages: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    int statusCode = exception.getMessage().contains("SQLITE_ERROR") ? 500 : 400;
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", statusCode);
+                })
+                .end();
+
+        rest("/api/users/count")
+                .get()
+                .produces("application/json")
+                .to("direct:userCount");
+
+        from("direct:userCount")
+                .doTry()
+                .process(exchange -> {
+                    log.info("Fetching total user count"); // Логирование запроса
+                    long count = userRepository.count(); // Подсчёт пользователей
+                    String json = objectMapper.writeValueAsString(Map.of("count", count)); // Формирование JSON-ответа
+                    exchange.getIn().setBody(json);
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch user count: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}"); // Формирование ответа об ошибке
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 500);
+                })
+                .end();
     }
 }

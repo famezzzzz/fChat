@@ -9,12 +9,31 @@ import java.time.LocalDateTime;
 @Table(name = "chat_message")
 @NamedQueries({
         @NamedQuery(
+                name = "Message.findConversationMessages",
+                query = "SELECT m FROM Message m WHERE m.chatType = 'PRIVATE' AND " +
+                        "((m.sender.id = :userId AND m.recipient.id = :otherUserId) OR " +
+                        "(m.sender.id = :otherUserId AND m.recipient.id = :userId)) AND " +
+                        "(:since IS NULL OR m.timestamp > :since) " +
+                        "ORDER BY m.timestamp ASC"
+        ),
+        @NamedQuery(
                 name = "Message.findByGroupId",
                 query = "SELECT m FROM Message m WHERE m.group.id = :groupId AND m.chatType = 'GROUP'"
         ),
         @NamedQuery(
-                name = "Message.findByUserId",
-                query = "SELECT m FROM Message m WHERE m.recipient.id = :userId AND m.chatType = 'PRIVATE'"
+                name = "Message.findChatHistory",
+                query = "SELECT m FROM Message m WHERE m.chatType = 'PRIVATE' AND " +
+                        "((m.sender.id = :userId AND m.recipient.id = :otherUserId) OR " +
+                        "(m.sender.id = :otherUserId AND m.recipient.id = :userId)) " +
+                        "ORDER BY m.timestamp ASC"
+        ),
+        @NamedQuery(
+                name = "Message.searchMessages",
+                query = "SELECT m FROM Message m WHERE (m.sender.id = :userId OR m.recipient.id = :userId OR m.group.id IN (SELECT cug.group.id FROM ChatUserGroups cug WHERE cug.user.id = :userId))" +
+                        "AND (:keyword IS NULL OR m.content LIKE :keyword)" +
+                        "AND (:start IS NULL OR m.timestamp >= :start)" +
+                        "AND (:end IS NULL OR m.timestamp <= :end)" +
+                        "ORDER BY m.timestamp ASC"
         )
 })
 @JsonIgnoreProperties({"sender", "recipient", "group"})

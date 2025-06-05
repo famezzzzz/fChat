@@ -1,0 +1,358 @@
+{
+	"info": {
+		"_postman_id": "ac4846ee-167d-4c49-a121-e71a2eda6426",
+		"name": "fChatClient",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "37009963"
+	},
+	"item": [
+		{
+			"name": "register",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": ""
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\":\"famez\",\n    \"password\":\"password123\"\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/users/register"
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": ""
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\":\"famez\",\n    \"password\":\"password123\"\n}\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/users/register"
+			},
+			"response": []
+		},
+		{
+			"name": "sendPrivateMessage",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": ""
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Yura\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/users/register"
+			},
+			"response": []
+		},
+		{
+			"name": "getPrivateMessage",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "searchMessage",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "getUsers",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "getPrivateChatHistory",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "getGroups",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "userInfo",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "search",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Famez\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/message/private"
+			},
+			"response": []
+		},
+		{
+			"name": "createGroup",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": ""
+					}
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"content\":\"Hello Yura\",\"senderId\":\"2620a1a9-0534-4860-8c4d-aae46ac066fd\",\"recipientId\":\"8a584214-75ca-417b-9fe2-d6cb3afc0452\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/users/register"
+			},
+			"response": []
+		},
+		{
+			"name": "sendGroupMessage",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": ""
+					}
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"name\":\"test-group\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/groups"
+			},
+			"response": []
+		},
+		{
+			"name": "getGroupMessage",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{accessToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:38080/api/messages/group/c49b9b1e-5786-471d-b58a-471378e1c784"
+			},
+			"response": []
+		}
+	]
+}

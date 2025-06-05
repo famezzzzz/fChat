@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface ChatUserRepository extends JpaRepository<ChatUser, String> {
     Optional<ChatUser> findByUsername(String username);
+    Optional<ChatUser> findByEmail(String email);
 }
