@@ -47,6 +47,7 @@
     - `/api/users/register`: Создаёт пользователя с уникальным именем, закодированным паролем, датой рождения, email, телефоном и URL аватара.
     - `/api/auth/login`: Аутентифицирует пользователей и возвращает JWT.
     - `/api/users/{userId}`: Возвращает информацию о конкретном пользователе (ID, имя, дата рождения, email, телефон, URL аватара).
+    - `/api/users/`: Возвращает информацию об авторизованном пользователе (ID, имя, дата рождения, email, телефон, URL аватара).
 - **Управление группами**:
     - `/api/groups`: Создаёт группу с уникальным именем.
     - `/api/groups/join`: Добавляет пользователя в группу, заполняющей `chat_user_groups`.
@@ -124,7 +125,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 - **Тело запроса**:
   ```json
   {
-    "username": "urnassme",
+    "username": "user_name",
     "password": "password123",
     "birthdate": "01-01-1990",
     "email": "user@example.com",
@@ -135,7 +136,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 - **Примечание**: Поле `birthdate` должно быть в формате `MM-dd-yyyy` (например, `01-01-1990`).
 - **Ответ**: `200 OK`
   ```json
-  {"message":"User registered successfully","id":"uuid","username":"urnassme","email":"user@example.com"}
+  {"message":"User registered successfully","id":"uuid","username":"user_name","email":"user@example.com"}
   ```
 - **Логика**: Сохраняет пользователя с закодированным паролем (BCrypt) и дополнительными полями. Поля `birthdate`, `email`, `phone`, `avatarUrl` опциональны, но `email` должен быть уникальным, если указан.
 
@@ -146,7 +147,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
   ```json
   {
     "id": "uuid",
-    "username": "urnassme",
+    "username": "user_name",
     "birthdate": "01-01-1990",
     "email": "user@example.com",
     "phone": "+1234567890",
@@ -159,7 +160,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 - **POST** `/api/auth/login`
 - **Тело запроса**:
   ```json
-  {"username":"urnassme","password":"password123"}
+  {"username":"user_name","password":"password123"}
   ```
 - **Ответ**: `200 OK`
   ```json
@@ -190,7 +191,6 @@ CREATE TABLE IF NOT EXISTS chat_message (
   ```json
   {"message":"Message sent successfully"}
   ```
-- **Логика**: Сохраняет сообщение, отправляет через WebSocket на `/topic/private/{recipientId}`.
 
 ### 6. Получение личных сообщений
 - **GET** `/api/messages/private/{userId}`
@@ -212,7 +212,6 @@ CREATE TABLE IF NOT EXISTS chat_message (
   ```json
   {"message":"Message sent successfully"}
   ```
-- **Логика**: Сохраняет сообщение, отправляет на `/topic/group/{groupId}`.
 
 ### 8. Получение групповых сообщений
 - **GET** `/api/messages/group/{groupId}`
@@ -239,6 +238,31 @@ CREATE TABLE IF NOT EXISTS chat_message (
   [{"id":"uuid","content":"Hello","senderId":"uuid","recipientId":"uuid","chatType":"PRIVATE","timestamp":"..."}]
   ```
 - **Логика**: Возвращает сообщения, где пользователь является отправителем, получателем или участником группы, с фильтрацией по ключевому слову и/или временному диапазону. Если параметры не указаны, возвращаются все доступные сообщения пользователя.
+
+### 10. Получение количества зарегистрированных пользователей
+- **GET** `/api/users/count`
+- **Заголовки**: `Authorization: Bearer [jwt]`
+- **Ответ**: `200 OK`
+  ```json
+  {"count":2}
+  ```
+- **Логика**: Возвращает количество записей из таблицы `chat_user`
+
+### 11. Получение информации о себе
+- **GET** `/api/users/myInfo`
+- **Заголовки**: `Authorization: Bearer [jwt]`
+- **Ответ**: `200 OK`
+  ```json
+  {
+    "id": "uuid",
+    "username": "user_name",
+    "birthdate": "01-01-1990",
+    "email": "user@example.com",
+    "phone": "+1234567890",
+    "avatarUrl": "https://example.com/avatar.jpg"
+  }
+  ```
+- **Логика**: Возвращает информацию о пользователе по JWT токену.
 
 ## Как это работает
 1. **Запуск**:
@@ -297,7 +321,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 5. **Тестирование эндпоинтов**:
     - Регистрация:
       ```bash
-      curl -X POST http://localhost:38080/api/users/register -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123","birthdate":"01-01-1990","email":"user@example.com","phone":"+1234567890","avatarUrl":"https://example.com/avatar.jpg"}'
+      curl -X POST http://localhost:38080/api/users/register -H "Content-Type: application/json" -d '{"username":"user_name","password":"password123","birthdate":"01-01-1990","email":"user@example.com","phone":"+1234567890","avatarUrl":"https://example.com/avatar.jpg"}'
       ```
     - Получение информации о пользователе:
       ```bash
@@ -305,7 +329,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
       ```
     - Вход:
       ```bash
-      curl -X POST http://localhost:38080/api/auth/login -H "Content-Type: application/json" -d '{"username":"urnassme","password":"password123"}'
+      curl -X POST http://localhost:38080/api/auth/login -H "Content-Type: application/json" -d '{"username":"user_name","password":"password123"}'
       ```
     - Поиск сообщений:
       ```bash

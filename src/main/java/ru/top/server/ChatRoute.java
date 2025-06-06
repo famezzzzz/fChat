@@ -1,6 +1,7 @@
 package ru.top.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.rest.RestBindingMode;
 import org.slf4j.Logger;
@@ -744,6 +745,45 @@ public class ChatRoute extends RouteBuilder {
                     exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
                     exchange.getMessage().setHeader("Content-Type", "application/json");
                     exchange.getMessage().setHeader("CamelHttpResponseCode", 500);
+                })
+                .end();
+
+        rest("/api/users/myInfo")
+                .get()
+                .produces("application/json")
+                .to("direct:getAuthInformation");
+
+        from("direct:getAuthInformation")
+                .doTry()
+                .process(exchange -> {
+                    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                    String username = auth != null ? auth.getName() : null;
+
+                    log.info("Fetching ID for authenticated user: {}", username);
+                    log.info("User: {}", username);
+                    if (username == null) {
+                        throw new IllegalArgumentException("No authenticated user found");
+                    }
+                    ChatUser user = userRepository.findByUsername(username)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("id", user.getId());
+                    userMap.put("username", user.getUsername());
+                    userMap.put("birthdate", user.getBirthdate() != null ? user.getBirthdate().toString() : null);
+                    userMap.put("email", user.getEmail());
+                    userMap.put("phone", user.getPhone());
+                    userMap.put("avatarUrl", user.getAvatarUrl());
+                    String json = objectMapper.writeValueAsString(userMap);
+                    exchange.getIn().setBody(json);
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                })
+                .doCatch(Exception.class)
+                .process(exchange -> {
+                    Exception exception = exchange.getProperty("CamelExceptionCaught", Exception.class);
+                    log.error("Failed to fetch user ID: {}", exception.getMessage(), exception);
+                    exchange.getMessage().setBody("{\"error\":\"" + exception.getMessage() + "\"}");
+                    exchange.getMessage().setHeader("Content-Type", "application/json");
+                    exchange.getMessage().setHeader("CamelHttpResponseCode", 400);
                 })
                 .end();
     }
