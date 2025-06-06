@@ -340,7 +340,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 ## Устранение неполадок
 - **Ошибки DDL**:
     - Проверьте `spring.jpa.hibernate.ddl-auto=none` в `application.properties`.
-    - Переинициализируйте базу данных с помощью `init.sql`.
+    - Переинициализируйте базу данных с помощью `schema.sql`.
 - **403 Forbidden**:
     - Проверьте валидность JWT и наличие `ROLE_USER` в `SecurityConfig.java`.
     - Временно установите `.anyRequest().permitAll()` для теста.
@@ -353,16 +353,8 @@ CREATE TABLE IF NOT EXISTS chat_message (
 - **Ошибка InvalidPayloadRuntimeException в `/api/messages/search`**:
     - Убедитесь, что запрос использует корректный формат параметров (`keyword`, `start`, `end`).
     - Проверьте, что база данных содержит сообщения, соответствующие критериям поиска.
-    - Проверьте логи на наличие ошибок JPA или Hibernate, таких как `SQLITE_ERROR`.
+    - Проверьте логи на наличие ошибок JPA или Hibernate, таких, как `SQLITE_ERROR`.
     - Убедитесь, что `Message.java` содержит правильный именованный запрос `Message.searchMessages`.
 - **Ошибки десериализации даты**:
     - Убедитесь, что поле `birthdate` в запросе `/api/users/register` соответствует формату `MM-dd-yyyy` (например, `01-01-1990`).
     - Проверьте логи на наличие `DateTimeParseException`.
-
-## Логи
-- Расположение: `/Users/urijvazmin/server.log`
-- Ключевые записи:
-    - `Retrieved X messages for groupId/userId`
-    - `Pushed private/group message to /topic/...`
-    - `Failed to search messages: ...`
-    - SQL-запросы Hibernate
